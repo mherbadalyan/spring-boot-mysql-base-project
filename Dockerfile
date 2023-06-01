@@ -4,18 +4,30 @@
 #EXPOSE 8080
 #ENTRYPOINT ["java", "-jar","/app.jar"]
 
-FROM gradle:jdk17-focal as cache
-RUN mkdir -p /home/gradle/cache
-ENV GRADLE_USER_HOME /home/gradle/cache
-WORKDIR /home/gradle/app
-COPY build.gradle settings.gradle /home/gradle/app/
-RUN gradle init -i --stacktrace
+#FROM gradle:jdk17-focal as cache
+#RUN mkdir -p /home/gradle/cache
+#ENV GRADLE_USER_HOME /home/gradle/cache
+#WORKDIR /home/gradle/app
+#COPY build.gradle settings.gradle /home/gradle/app/
+#RUN gradle init -i --stacktrace
+#
+#FROM gradle:jdk17-focal as builder
+#COPY --from=cache /home/gradle/cache /home/gradle/.gradle
+#COPY ./ /opt/app
+#WORKDIR /opt/app
+#RUN gradle build
+#
+#FROM openjdk:17.0.2-slim
+#COPY --from=builder /opt/app/build/libs/*-SNAPSHOT.jar /deployments/app-run.jar
+#EXPOSE 8080
+#ENTRYPOINT java -jar /deployments/app-run.jar
 
-FROM gradle:jdk17-focal as builder
-COPY --from=cache /home/gradle/cache /home/gradle/.gradle
-COPY ./ /opt/app
+
+FROM quay.io/quarkus/ubi-quarkus-graalvmce-builder-image:22.3-java17 AS builder
 WORKDIR /opt/app
-RUN gradle build
+COPY --chown=quarkus:quarkus . .
+USER quarkus
+RUN  --mount=type=cache,target=/root/.m2 ./gradlew build
 
 FROM openjdk:17.0.2-slim
 COPY --from=builder /opt/app/build/libs/*-SNAPSHOT.jar /deployments/app-run.jar
